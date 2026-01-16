@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>salary-ics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>salary-ics</h1>
+
+<div class="meta" id="meta">Loading…</div>
+<div class="meta" id="coverage">Calendar covers: —</div>
+
+<div class="card">
+  <div class="row">
+    <div class="label">Subscribe URL</div>
+    <div class="value mono" id="subscribeUrl">—</div>
+  </div>
+
+  <div class="buttons">
+    <button class="copy-btn" id="copyBtn" type="button">Copy URL</button>
+    <a class="btn" href="./salary.ics">Open .ics</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="label">Rules</div>
+  <p class="text" id="rulesText">—</p>
+</div>
+
+<div class="card">
+  <div class="label">Data source</div>
+  <p class="text">
+    Non-working days are sourced from
+    <a href="https://hh.ru/calendar" target="_blank" rel="noreferrer">hh.ru/calendar</a>
+    and HeadHunter production calendar pages for
+    <span id="years-links">—</span>.
+  </p>
+</div>
+
+<script>
+  function formatRelativeTime(date) {
+    const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
+  }
+
+  function renderYearsLinks(years) {
+    const yearsLinksEl = document.getElementById('years-links');
+    yearsLinksEl.innerHTML = '';
+
+    if (!years || years.length === 0) {
+      yearsLinksEl.textContent = '—';
+      return;
+    }
+
+    years.forEach((y, i) => {
+      if (i > 0) yearsLinksEl.append(', ');
+      const a = document.createElement('a');
+      a.href = `https://hh.ru/article/calendar${y}`;
+      a.textContent = String(y);
+      a.target = '_blank';
+      a.rel = 'noreferrer';
+      yearsLinksEl.appendChild(a);
+    });
+  }
+
+  function renderRules(rules) {
+    const el = document.getElementById('rulesText');
+    if (!rules || !Array.isArray(rules) || rules.length === 0) {
+      el.textContent = '—';
+      return;
+    }
+
+    // rules like: [{ "day": 5, "label": "Salary" }, ...]
+    const items = rules
+      .filter(x => Number.isFinite(Number(x.day)) && typeof x.label === 'string')
+      .sort((a, b) => Number(a.day) - Number(b.day))
+      .map(x => `${x.day}: ${x.label}`);
+
+    el.textContent = items.join(', ');
+  }
+
+  async function loadMeta() {
+    const metaEl = document.getElementById('meta');
+    const coverageEl = document.getElementById('coverage');
+    const subscribeEl = document.getElementById('subscribeUrl');
+    const copyBtn = document.getElementById('copyBtn');
+
+    const baseUrl =
+      location.origin +
+      location.pathname.replace(/\/[^\/]*$/, '');
+
+    let data = null;
+    try {
+      const res = await fetch('./meta.json', { cache: 'no-store' });
+      if (res.ok) data = await res.json();
+    } catch {}
+
+    const subscribeUrl = data?.subscribeUrl || `${baseUrl}/salary.ics`;
+    subscribeEl.textContent = subscribeUrl;
+    copyBtn.dataset.url = subscribeUrl;
+
+    if (data?.updatedAtUtc) {
+      const d = new Date(data.updatedAtUtc);
+      metaEl.textContent = `Updated ${formatRelativeTime(d)} (${d.toLocaleString()})`;
+    } else {
+      metaEl.textContent = 'Updated time unknown';
+    }
+
+    const years = Array.isArray(data?.years)
+      ? data.years.map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+      : [];
+
+    if (years.length) {
+      coverageEl.textContent = `Calendar covers: ${years[0]}–${years[years.length - 1]}`;
+    } else {
+      coverageEl.textContent = 'Calendar covers: —';
+    }
+
+    renderYearsLinks(years);
+    renderRules(data?.rules);
+  }
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.copy-btn');
+    if (!btn) return;
+
+    try {
+      await navigator.clipboard.writeText(btn.dataset.url);
+      const old = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = old, 1200);
+    } catch {
+      alert('Copy failed');
+    }
+  });
+
+  loadMeta();
+</script>
+
+</body>
+</html>

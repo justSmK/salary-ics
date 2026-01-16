@@ -1,0 +1,10 @@
+{
+  "updatedAtUtc": "2026-01-16T18:33:10Z",
+  "subscribeUrl": "https://justSmK.github.io/salary-ics/salary.ics",
+  "years": [2025, 2026, 2027],
+  "rules": [
+    { "day": 5, "label": "Salary" },
+    { "day": 20, "label": "Mid-month pay" }
+  ],
+  "hhCalendarUrl": "https://hh.ru/calendar"
+}
