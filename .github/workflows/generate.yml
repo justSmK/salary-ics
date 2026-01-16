@@ -43,7 +43,7 @@ jobs:
             --start-year=$START_YEAR \
             --end-year=$END_YEAR \
             --rules "5:Salary;20:Mid-month pay" \
-            --calendar-name "Salary (RU, shifted to working day)" \
+            --calendar-name "Salary (shifted to working day)" \
             -o out/salary.ics
 
           # Copy static site files
