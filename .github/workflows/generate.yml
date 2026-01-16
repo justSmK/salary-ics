@@ -2,7 +2,7 @@ name: Refresh salary.ics
 
 on:
   schedule:
-    - cron: "0 6 1 * *" # monthly, 1st day at 06:00 UTC
+    - cron: "0 6 1 * *"  # monthly, 1st day at 06:00 UTC
   workflow_dispatch:
 
 concurrency:
@@ -45,6 +45,27 @@ jobs:
             --rules "5:Salary;20:Mid-month pay" \
             --calendar-name "Salary (RU, shifted to working day)" \
             -o out/salary.ics
+
+          # Copy static site files
+          cp index.html out/index.html
+          cp style.css out/style.css
+
+          # Build meta.json for the page
+          UPDATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          BASE_URL="https://justSmK.github.io/salary-ics"
+
+          cat > out/meta.json << EOF
+          {
+            "updatedAtUtc": "${UPDATED_AT}",
+            "subscribeUrl": "${BASE_URL}/salary.ics",
+            "years": [$START_YEAR, $YEAR, $END_YEAR],
+            "rules": [
+              { "day": 5, "label": "Salary" },
+              { "day": 20, "label": "Mid-month pay" }
+            ],
+            "hhCalendarUrl": "https://hh.ru/calendar"
+          }
+          EOF
 
       - name: Deploy to GitHub Pages (gh-pages branch)
         uses: peaceiris/actions-gh-pages@v4
