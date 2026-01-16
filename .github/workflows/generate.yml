@@ -1,0 +1,54 @@
+name: Refresh salary.ics
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # monthly, 1st day at 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: salary-ics
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate salary.ics
+        run: |
+          mkdir -p out
+
+          YEAR=$(date -u +%Y)
+          START_YEAR=$((YEAR-1))
+          END_YEAR=$((YEAR+1))
+
+          python salary_ics.py \
+            --start-year=$START_YEAR \
+            --end-year=$END_YEAR \
+            --rules "5:Salary;20:Mid-month pay" \
+            --calendar-name "Salary (RU, shifted to working day)" \
+            -o out/salary.ics
+
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out
+          publish_branch: gh-pages
