@@ -7,3 +7,8 @@ Common bi-monthly payroll schedule, widely used in Russia.
 
 [hh](https://hh.ru/calendar)
 [Another](https://secrets.tbank.ru/calendar/2026/)
+
+## Disclaimer
+
+This is a personal project.
+Provided as-is, without any guarantees or support obligations.
