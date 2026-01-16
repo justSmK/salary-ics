@@ -191,7 +191,7 @@ def make_salary_event(base_year: int, base_month: int, base_day: int, actual_day
 
     base_date = date(base_year, base_month, base_day)
     if actual_day != base_date:
-        e.add("description", f"Shifted from {base_date.isoformat()} to {actual_day.isoformat()} (non-working day).")
+        e.add("description", f"Shifted from {base_date.isoformat()} to {actual_day.isoformat()}.")
 
     return e
 
