@@ -98,6 +98,10 @@ def build_non_working_dates(months_by_year: dict[int, list[dict]]) -> set[date]:
     """
     Treat 'holiday' and 'dayoff' as non-working.
     'shortened' is still working.
+
+    IMPORTANT: We intentionally do NOT infer weekends by weekday(),
+    because Russia has "working Saturdays" (moved workdays) and also
+    moved days off. hh.ru production calendar already encodes this.
     """
     non_working: set[date] = set()
 
@@ -110,16 +114,26 @@ def build_non_working_dates(months_by_year: dict[int, list[dict]]) -> set[date]:
     return non_working
 
 
-def is_working_day(d: date, non_working: set[date]) -> bool:
+def is_working_day(d: date, non_working: set[date], covered_years: set[int]) -> bool:
+    """
+    If we have hh.ru calendar coverage for the year, trust it fully:
+      working day  <=>  not in non_working set
+    This correctly handles moved working Saturdays.
+
+    If we don't have coverage for the year (fallback), we assume:
+      weekend (Sat/Sun) is non-working, plus any explicitly known non_working.
+    """
+    if d.year in covered_years:
+        return d not in non_working
+
+    # Fallback (should be rare if you parse start_year-1..end_year)
     if d.weekday() >= 5:
         return False
-    if d in non_working:
-        return False
-    return True
+    return d not in non_working
 
 
-def shift_to_previous_working_day(d: date, non_working: set[date]) -> date:
-    while not is_working_day(d, non_working):
+def shift_to_previous_working_day(d: date, non_working: set[date], covered_years: set[int]) -> date:
+    while not is_working_day(d, non_working, covered_years):
         d -= timedelta(days=1)
     return d
 
@@ -157,7 +171,6 @@ def parse_rules(rules_str: str) -> list[tuple[int, str]]:
 
         rules.append((day, label))
 
-    # ensure deterministic order
     rules.sort(key=lambda x: x[0])
     return rules
 
@@ -173,7 +186,6 @@ def make_salary_event(base_year: int, base_month: int, base_day: int, actual_day
     e.add("dtstamp", datetime.now(UTC))
 
     # Stable UID tied to intended payday day-of-month, not shifted date
-    # Include summary hash-ish (sanitized) to avoid UID collision if you have multiple rules on same day.
     safe = re.sub(r"[^a-zA-Z0-9]+", "-", summary).strip("-").lower() or "event"
     e.add("uid", f"ru-salary-{base_year}{base_month:02d}{base_day:02d}-{safe}@salary-ics")
 
@@ -184,7 +196,12 @@ def make_salary_event(base_year: int, base_month: int, base_day: int, actual_day
     return e
 
 
-def generate_salary_events(year: int, non_working: set[date], rules: list[tuple[int, str]]) -> list[Event]:
+def generate_salary_events(
+    year: int,
+    non_working: set[date],
+    covered_years: set[int],
+    rules: list[tuple[int, str]],
+) -> list[Event]:
     events: list[Event] = []
 
     for month in range(1, 13):
@@ -195,7 +212,7 @@ def generate_salary_events(year: int, non_working: set[date], rules: list[tuple[
             except ValueError:
                 continue
 
-            actual = shift_to_previous_working_day(base, non_working)
+            actual = shift_to_previous_working_day(base, non_working, covered_years)
             events.append(make_salary_event(year, month, day, actual, label))
 
     return events
@@ -223,15 +240,14 @@ def main():
     p.add_argument("-o", default="salary.ics")
     p.add_argument("--log-level", default="INFO")
 
-    # Flexible rules
     p.add_argument(
         "--rules",
-        default="5:Salary;20:Advance",
-        help='Rules in format "DAY:LABEL;DAY:LABEL". Example: "5:Зарплата;20:Аванс"',
+        default="5:Salary;20:Mid-month pay",
+        help='Rules in format "DAY:LABEL;DAY:LABEL". Example: "5:Salary;20:Mid-month pay"',
     )
     p.add_argument(
         "--calendar-name",
-        default="Salary (RU, shifted)",
+        default="Salary (RU, shifted to working day)",
         help="Calendar display name",
     )
 
@@ -258,13 +274,14 @@ def main():
             break
         months_by_year[year] = months
 
+    covered_years = set(months_by_year.keys())
     non_working = build_non_working_dates(months_by_year)
 
     events: list[Event] = []
     for year in range(args.start_year, args.end_year + 1):
         if year not in months_by_year:
             break
-        events.extend(generate_salary_events(year, non_working, rules))
+        events.extend(generate_salary_events(year, non_working, covered_years, rules))
 
     cal = build_calendar(events, args.calendar_name)
 
