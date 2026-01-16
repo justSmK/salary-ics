@@ -126,7 +126,7 @@ def shift_to_previous_working_day(d: date, non_working: set[date]) -> date:
 
 def parse_rules(rules_str: str) -> list[tuple[int, str]]:
     """
-    Format: "5:Зарплата;20:Аванс"
+    Format: "5:Salary;20:Mid-month pay"
     - separator between rules: ';'
     - day and label: ':'
     """
