@@ -5,8 +5,9 @@ English iCalendar feed with salary days
 
 Common bi-monthly payroll schedule, widely used in Russia.
 
-[hh](https://hh.ru/calendar)
+[xmlcalendar](https://xmlcalendar.ru)
 [Another](https://secrets.tbank.ru/calendar/2026/)
+[Another one](https://www.consultant.ru/law/ref/calendar/proizvodstvennye/2027/)
 
 ## Disclaimer
 
