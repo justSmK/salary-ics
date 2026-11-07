@@ -33,9 +33,9 @@
 <div class="card">
   <div class="label">Data source</div>
   <p class="text">
-    Non-working days are sourced from
-    <a href="https://hh.ru/calendar" target="_blank" rel="noreferrer">hh.ru/calendar</a>
-    and HeadHunter production calendar pages for
+    Non-working days are sourced from the
+    <a href="https://xmlcalendar.ru" target="_blank" rel="noreferrer">xmlcalendar.ru</a>
+    production calendar for
     <span id="years-links">—</span>.
   </p>
 </div>
@@ -61,7 +61,7 @@
     years.forEach((y, i) => {
       if (i > 0) yearsLinksEl.append(', ');
       const a = document.createElement('a');
-      a.href = `https://hh.ru/article/calendar${y}`;
+      a.href = `https://xmlcalendar.ru/html.php?year=${y}&country=ru`;
       a.textContent = String(y);
       a.target = '_blank';
       a.rel = 'noreferrer';
