@@ -2,146 +2,377 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>salary-ics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Salary days · calendar feed</title>
+  <meta name="description" content="Paydays moved back to the previous working day in Russia, as a calendar subscription.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<main class="page">
+  <header class="top">
+    <h1 data-i18n="title">Salary days</h1>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+    </div>
+  </header>
+  <p class="lead" data-i18n="lead">Paydays moved back to the previous working day when they fall on a weekend or a public holiday in Russia, as a calendar you subscribe to once. It updates itself every week.</p>
+  <p class="rules" id="rules">Rules: 5th — Salary, 20th — Mid-month pay</p>
 
-<h1>salary-ics</h1>
+  <section class="card">
+    <div class="subs">
+      <a class="btn primary" id="apple" href="webcal://justSmK.github.io/salary-ics/salary.ics" data-i18n="apple">Apple Calendar</a>
+      <a class="btn" id="google" href="https://calendar.google.com/calendar/r?cid=webcal%3A%2F%2FjustSmK.github.io%2Fsalary-ics%2Fsalary.ics" target="_blank" rel="noreferrer" data-i18n="google">Google Calendar</a>
+      <a class="btn" id="outlook" href="https://outlook.live.com/calendar/0/addfromweb?url=https%3A%2F%2FjustSmK.github.io%2Fsalary-ics%2Fsalary.ics&amp;name=Salary%20(shifted%20to%20working%20day)" target="_blank" rel="noreferrer">Outlook</a>
+    </div>
+    <div class="url">
+      <code id="subscribeUrl">https://justSmK.github.io/salary-ics/salary.ics</code>
+      <button type="button" class="btn" id="copyBtn" data-i18n="copy">Copy link</button>
+    </div>
+    <p class="hint" data-i18n="hint">Any other app: paste the link wherever it offers “Subscribe” or “Add calendar from URL”. A subscription keeps itself up to date; a downloaded file does not.</p>
+  </section>
 
-<div class="meta" id="meta">Loading…</div>
-<div class="meta" id="coverage">Calendar covers: —</div>
+  <section id="upcoming" hidden>
+    <h2 data-i18n="upcoming">Coming up</h2>
+    <ol class="events" id="events"></ol>
+  </section>
 
-<div class="card">
-  <div class="row">
-    <div class="label">Subscribe URL</div>
-    <div class="value mono" id="subscribeUrl">—</div>
-  </div>
+  <section>
+    <h2 data-i18n="howto">How to add</h2>
+    <details>
+      <summary data-i18n="appleTitle">iPhone, iPad, Mac</summary>
+      <p data-i18n="appleHow">Tap “Apple Calendar” above and confirm “Subscribe”. By hand on iPhone: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar, then paste the link (on iOS 18 and later Calendar is under Settings → Apps). On Mac: Calendar → File → New Calendar Subscription.</p>
+    </details>
+    <details>
+      <summary data-i18n="googleTitle">Google Calendar</summary>
+      <p data-i18n="googleHow">On a computer, open “Google Calendar” above and confirm. By hand: calendar.google.com → Other calendars → + → From URL, paste the link. The phone app cannot add a calendar by link, but it shows the calendar once it is added on the web.</p>
+    </details>
+    <details>
+      <summary data-i18n="androidTitle">Android</summary>
+      <p data-i18n="androidHow">Add the calendar to Google Calendar on a computer (see above). It then syncs to the Google Calendar app; if it does not show up, open the app's settings, find the calendar and turn on sync.</p>
+    </details>
+    <details>
+      <summary data-i18n="outlookTitle">Outlook</summary>
+      <p data-i18n="outlookHow">“Outlook” above works for personal Outlook.com accounts. For a work or school account, open Outlook on the web → Calendar → Add calendar → Subscribe from web and paste the link.</p>
+    </details>
+  </section>
 
-  <div class="buttons">
-    <button class="copy-btn" id="copyBtn" type="button">Copy URL</button>
-    <a class="btn" href="./salary.ics">Open .ics</a>
-  </div>
-</div>
-
-<div class="card">
-  <div class="label">Rules</div>
-  <p class="text" id="rulesText">—</p>
-</div>
-
-<div class="card">
-  <div class="label">Data source</div>
-  <p class="text">
-    Non-working days are sourced from the
-    <a href="https://xmlcalendar.ru" target="_blank" rel="noreferrer">xmlcalendar.ru</a>
-    production calendar for
-    <span id="years-links">—</span>.
-  </p>
-</div>
+  <footer class="foot">
+    <span id="coverage"></span><span id="updated"></span><span><span data-i18n="source">Non-working days</span>: <a href="https://xmlcalendar.ru" target="_blank" rel="noreferrer">xmlcalendar.ru</a> <span id="years-links"></span></span><span><a href="salary.ics" data-i18n="file">.ics file</a></span>
+  </footer>
+</main>
 
 <script>
-  function formatRelativeTime(date) {
-    const diff = Math.floor((Date.now() - date.getTime()) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-    return `${Math.floor(diff / 86400)} days ago`;
+  const FEED = 'salary.ics';
+  const FEED_NAME = 'Salary (shifted to working day)';
+  const UPCOMING_COUNT = 6;
+
+  const KINDS = {
+    'Salary': 'salary',
+    'Mid-month pay': 'advance',
+  };
+
+  const TEXTS = {
+    en: {
+      docTitle: 'Salary days · calendar feed',
+      title: 'Salary days',
+      lead: 'Paydays moved back to the previous working day when they fall on a weekend or a public holiday in Russia, as a calendar you subscribe to once. It updates itself every week.',
+      apple: 'Apple Calendar',
+      google: 'Google Calendar',
+      copy: 'Copy link',
+      copied: 'Copied',
+      copyFailed: 'Select and copy',
+      hint: 'Any other app: paste the link wherever it offers “Subscribe” or “Add calendar from URL”. A subscription keeps itself up to date; a downloaded file does not.',
+      upcoming: 'Coming up',
+      howto: 'How to add',
+      appleTitle: 'iPhone, iPad, Mac',
+      appleHow: 'Tap “Apple Calendar” above and confirm “Subscribe”. By hand on iPhone: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar, then paste the link (on iOS 18 and later Calendar is under Settings → Apps). On Mac: Calendar → File → New Calendar Subscription.',
+      googleTitle: 'Google Calendar',
+      googleHow: 'On a computer, open “Google Calendar” above and confirm. By hand: calendar.google.com → Other calendars → + → From URL, paste the link. The phone app cannot add a calendar by link, but it shows the calendar once it is added on the web.',
+      androidTitle: 'Android',
+      androidHow: 'Add the calendar to Google Calendar on a computer (see above). It then syncs to the Google Calendar app; if it does not show up, open the app\'s settings, find the calendar and turn on sync.',
+      outlookTitle: 'Outlook',
+      outlookHow: '“Outlook” above works for personal Outlook.com accounts. For a work or school account, open Outlook on the web → Calendar → Add calendar → Subscribe from web and paste the link.',
+      source: 'Non-working days',
+      file: '.ics file',
+      covers: (from, to) => `Covers ${from}–${to}`,
+      updated: (ago) => `Updated ${ago}`,
+      kinds: {},
+      rules: (items) => `Rules: ${items}`,
+      ruleItem: (day, label) => `${day}${ordinal(day)} — ${label}`,
+      movedFrom: (date) => `moved from ${date}`,
+    },
+    ru: {
+      docTitle: 'Дни зарплаты · календарь',
+      title: 'Дни зарплаты',
+      lead: 'Дни выплат зарплаты: если день выпадает на выходной или праздник, выплата переносится на предыдущий рабочий день. Подписываетесь один раз — календарь сам обновляется каждую неделю.',
+      apple: 'Apple Календарь',
+      google: 'Google Календарь',
+      copy: 'Скопировать',
+      copied: 'Скопировано',
+      copyFailed: 'Выделите и скопируйте',
+      hint: 'Другие приложения: вставьте ссылку туда, где есть «Подписаться» или «Добавить календарь по URL». Подписка обновляется сама, а скачанный файл — нет.',
+      upcoming: 'Ближайшие',
+      howto: 'Как добавить',
+      appleTitle: 'iPhone, iPad, Mac',
+      appleHow: 'Нажмите «Apple Календарь» выше и подтвердите «Подписаться». Вручную на iPhone: Настройки → Календарь → Учётные записи → Добавить учётную запись → Другое → Подписной календарь, затем вставьте ссылку (в iOS 18 и новее Календарь находится в Настройки → Программы). На Mac: Календарь → Файл → Новая подписка на календарь.',
+      googleTitle: 'Google Календарь',
+      googleHow: 'На компьютере нажмите «Google Календарь» выше и подтвердите. Вручную: calendar.google.com → Другие календари → + → Добавить по URL, вставьте ссылку. В приложении на телефоне добавить календарь по ссылке нельзя, но после добавления в браузере он появится и там.',
+      androidTitle: 'Android',
+      androidHow: 'Добавьте календарь в Google Календарь на компьютере (см. выше). Он синхронизируется в приложение Google Календарь; если не появился, откройте настройки приложения, найдите календарь и включите синхронизацию.',
+      outlookTitle: 'Outlook',
+      outlookHow: 'Кнопка «Outlook» выше подходит для личных учётных записей Outlook.com. Для рабочей или учебной учётной записи откройте Outlook в браузере → Календарь → Добавить календарь → Подписаться из Интернета и вставьте ссылку.',
+      source: 'Нерабочие дни',
+      file: 'файл .ics',
+      covers: (from, to) => `Покрытие ${from}–${to}`,
+      updated: (ago) => `Обновлено ${ago}`,
+      kinds: {
+        'Salary': 'зарплата',
+        'Mid-month pay': 'аванс',
+      },
+      rules: (items) => `Правила: ${items}`,
+      ruleItem: (day, label) => `${day}-го — ${label}`,
+      movedFrom: (date) => `перенесено с ${date}`,
+    },
+  };
+
+  const LOCALES = { en: 'en-US', ru: 'ru-RU' };
+
+  const state = { lang: initialLang(), meta: null, events: null, url: null };
+
+  function initialLang() {
+    try {
+      const saved = localStorage.getItem('lang');
+      if (saved in TEXTS) return saved;
+    } catch {}
+    return (navigator.language || '').toLowerCase().startsWith('ru') ? 'ru' : 'en';
   }
 
-  function renderYearsLinks(years) {
-    const yearsLinksEl = document.getElementById('years-links');
-    yearsLinksEl.innerHTML = '';
+  function t(key) {
+    return TEXTS[state.lang][key];
+  }
 
-    if (!years || years.length === 0) {
-      yearsLinksEl.textContent = '—';
-      return;
+  function locale() {
+    return LOCALES[state.lang];
+  }
+
+  function parseIcsDate(value) {
+    const m = /^(\d{4})(\d{2})(\d{2})/.exec(value);
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+  }
+
+  function unescapeIcs(value) {
+    return value.replace(/\\([\\;,nN])/g, (_, c) => (c === 'n' || c === 'N' ? '\n' : c));
+  }
+
+  function parseIcs(text) {
+    const events = [];
+    let current = null;
+    for (const line of text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/)) {
+      if (line === 'BEGIN:VEVENT') {
+        current = {};
+      } else if (line === 'END:VEVENT') {
+        if (current && current.start) events.push(current);
+        current = null;
+      } else if (current) {
+        const colon = line.indexOf(':');
+        if (colon < 0) continue;
+        const name = line.slice(0, colon).split(';')[0];
+        const value = line.slice(colon + 1);
+        if (name === 'DTSTART') current.start = parseIcsDate(value);
+        else if (name === 'DTEND') current.end = parseIcsDate(value);
+        else if (name === 'SUMMARY') current.summary = unescapeIcs(value);
+        else if (name === 'DESCRIPTION') current.description = unescapeIcs(value);
+      }
     }
+    return events.map((e) => ({
+      ...e,
+      last: e.end ? new Date(e.end.getFullYear(), e.end.getMonth(), e.end.getDate() - 1) : e.start,
+    }));
+  }
 
-    years.forEach((y, i) => {
-      if (i > 0) yearsLinksEl.append(', ');
-      const a = document.createElement('a');
-      a.href = `https://xmlcalendar.ru/html.php?year=${y}&country=ru`;
-      a.textContent = String(y);
-      a.target = '_blank';
-      a.rel = 'noreferrer';
-      yearsLinksEl.appendChild(a);
+  function ordinal(n) {
+    if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+    return { 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th';
+  }
+
+  function eventNote(event) {
+    const m = /Shifted from (\d{4})-(\d{2})-(\d{2})/.exec(event.description || '');
+    if (!m) return '';
+    const from = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return t('movedFrom')(new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short' }).format(from));
+  }
+
+  function formatWhen(start, last) {
+    const thisYear = new Date().getFullYear();
+    const options = { day: 'numeric', month: 'short' };
+    if (start.getFullYear() !== thisYear || last.getFullYear() !== thisYear) options.year = 'numeric';
+    if (start.getTime() === last.getTime()) {
+      return new Intl.DateTimeFormat(locale(), { ...options, weekday: 'short' }).format(start);
+    }
+    const format = new Intl.DateTimeFormat(locale(), options);
+    return format.formatRange ? format.formatRange(start, last) : `${format.format(start)} – ${format.format(last)}`;
+  }
+
+  function formatAgo(date) {
+    const seconds = Math.round((date.getTime() - Date.now()) / 1000);
+    const steps = [['day', 86400], ['hour', 3600], ['minute', 60]];
+    const rtf = new Intl.RelativeTimeFormat(locale(), { numeric: 'auto' });
+    for (const [unit, size] of steps) {
+      if (Math.abs(seconds) >= size) return rtf.format(Math.round(seconds / size), unit);
+    }
+    return rtf.format(0, 'minute');
+  }
+
+  function renderTexts() {
+    document.documentElement.lang = state.lang;
+    document.title = t('docTitle');
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-lang]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.lang === state.lang));
     });
   }
 
-  function renderRules(rules) {
-    const el = document.getElementById('rulesText');
-    if (!rules || !Array.isArray(rules) || rules.length === 0) {
-      el.textContent = '—';
+  function renderSubscribe() {
+    const url = state.meta?.subscribeUrl || new URL(FEED, location.href).href;
+    const webcal = url.replace(/^https?:/, 'webcal:');
+    state.url = url;
+    document.getElementById('subscribeUrl').textContent = url;
+    document.getElementById('apple').href = webcal;
+    document.getElementById('google').href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
+    document.getElementById('outlook').href =
+      `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(url)}&name=${encodeURIComponent(FEED_NAME)}`;
+  }
+
+  function renderFooter() {
+    const years = (state.meta?.years || []).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+    const coverage = document.getElementById('coverage');
+    const updated = document.getElementById('updated');
+    const links = document.getElementById('years-links');
+
+    coverage.textContent = years.length ? t('covers')(years[0], years[years.length - 1]) : '';
+    coverage.hidden = !years.length;
+
+    const updatedAt = state.meta?.updatedAtUtc ? new Date(state.meta.updatedAtUtc) : null;
+    updated.textContent = updatedAt && !isNaN(updatedAt) ? t('updated')(formatAgo(updatedAt)) : '';
+    updated.hidden = !updated.textContent;
+    if (updatedAt && !isNaN(updatedAt)) updated.title = updatedAt.toLocaleString(locale());
+
+    links.replaceChildren();
+    if (years.length) {
+      links.append('(');
+      years.forEach((year, i) => {
+        if (i > 0) links.append(', ');
+        const a = document.createElement('a');
+        a.href = `https://xmlcalendar.ru/html.php?year=${year}&country=ru`;
+        a.target = '_blank';
+        a.rel = 'noreferrer';
+        a.textContent = String(year);
+        links.append(a);
+      });
+      links.append(')');
+    }
+  }
+
+  function renderRules() {
+    if (!state.meta) return;
+    const el = document.getElementById('rules');
+    const rules = (state.meta.rules || [])
+      .filter((r) => Number.isFinite(Number(r.day)) && typeof r.label === 'string')
+      .sort((a, b) => a.day - b.day);
+    el.textContent = rules.length ? t('rules')(rules.map((r) => t('ruleItem')(Number(r.day), r.label)).join(', ')) : '';
+    el.hidden = !rules.length;
+  }
+
+  function renderEvents() {
+    const section = document.getElementById('upcoming');
+    const list = document.getElementById('events');
+    if (!state.events) {
+      section.hidden = true;
       return;
     }
 
-    // rules like: [{ "day": 5, "label": "Salary" }, ...]
-    const items = rules
-      .filter(x => Number.isFinite(Number(x.day)) && typeof x.label === 'string')
-      .sort((a, b) => Number(a.day) - Number(b.day))
-      .map(x => `${x.day}: ${x.label}`);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const upcoming = state.events
+      .filter((e) => e.last >= today)
+      .sort((a, b) => a.start - b.start)
+      .slice(0, UPCOMING_COUNT);
 
-    el.textContent = items.join(', ');
+    list.replaceChildren(...upcoming.map((event) => {
+      const item = document.createElement('li');
+      item.className = `kind-${KINDS[event.summary] || 'other'}`;
+
+      const when = document.createElement('span');
+      when.className = 'when';
+      when.textContent = formatWhen(event.start, event.last);
+
+      const what = document.createElement('span');
+      what.className = 'what';
+      const dot = document.createElement('i');
+      dot.className = 'dot';
+      what.append(dot, event.summary || '');
+
+      const extra = [t('kinds')[event.summary], eventNote(event)].filter(Boolean).join(' · ');
+      if (extra) {
+        const small = document.createElement('small');
+        small.textContent = extra;
+        what.append(small);
+      }
+
+      item.append(when, what);
+      return item;
+    }));
+    section.hidden = upcoming.length === 0;
   }
 
-  async function loadMeta() {
-    const metaEl = document.getElementById('meta');
-    const coverageEl = document.getElementById('coverage');
-    const subscribeEl = document.getElementById('subscribeUrl');
-    const copyBtn = document.getElementById('copyBtn');
-
-    const baseUrl =
-      location.origin +
-      location.pathname.replace(/\/[^\/]*$/, '');
-
-    let data = null;
-    try {
-      const res = await fetch('./meta.json', { cache: 'no-store' });
-      if (res.ok) data = await res.json();
-    } catch {}
-
-    const subscribeUrl = data?.subscribeUrl || `${baseUrl}/salary.ics`;
-    subscribeEl.textContent = subscribeUrl;
-    copyBtn.dataset.url = subscribeUrl;
-
-    if (data?.updatedAtUtc) {
-      const d = new Date(data.updatedAtUtc);
-      metaEl.textContent = `Updated ${formatRelativeTime(d)} (${d.toLocaleString()})`;
-    } else {
-      metaEl.textContent = 'Updated time unknown';
-    }
-
-    const years = Array.isArray(data?.years)
-      ? data.years.map(Number).filter(Number.isFinite).sort((a, b) => a - b)
-      : [];
-
-    if (years.length) {
-      coverageEl.textContent = `Calendar covers: ${years[0]}–${years[years.length - 1]}`;
-    } else {
-      coverageEl.textContent = 'Calendar covers: —';
-    }
-
-    renderYearsLinks(years);
-    renderRules(data?.rules);
+  function render() {
+    renderTexts();
+    renderSubscribe();
+    renderRules();
+    renderFooter();
+    renderEvents();
   }
 
-  document.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.copy-btn');
-    if (!btn) return;
-
-    try {
-      await navigator.clipboard.writeText(btn.dataset.url);
-      const old = btn.textContent;
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = old, 1200);
-    } catch {
-      alert('Copy failed');
-    }
+  document.querySelectorAll('[data-lang]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.lang = button.dataset.lang;
+      try { localStorage.setItem('lang', state.lang); } catch {}
+      render();
+    });
   });
 
-  loadMeta();
-</script>
+  document.getElementById('copyBtn').addEventListener('click', async (e) => {
+    const button = e.currentTarget;
+    let label = t('copied');
+    try {
+      await navigator.clipboard.writeText(state.url);
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(document.getElementById('subscribeUrl'));
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      label = t('copyFailed');
+    }
+    button.textContent = label;
+    setTimeout(() => { button.textContent = t('copy'); }, 1500);
+  });
 
+  async function load() {
+    render();
+    const [meta, feed] = await Promise.allSettled([
+      fetch('meta.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
+      fetch(FEED, { cache: 'no-store' }).then((r) => (r.ok ? r.text() : null)),
+    ]);
+    state.meta = meta.status === 'fulfilled' ? meta.value : null;
+    state.events = feed.status === 'fulfilled' && feed.value ? parseIcs(feed.value) : null;
+    render();
+  }
+
+  load();
+</script>
 </body>
 </html>
